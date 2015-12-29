@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from __future__ import print_function
 import httplib2
 import sys, tempfile, os
@@ -12,6 +13,7 @@ from oauth2client import client
 from oauth2client import tools
 
 import datetime
+import re
 
 try:
 	import argparse
@@ -22,8 +24,10 @@ except ImportError:
 SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'GCalQuickJournal'
-EDITOR = os.environ["ProgramFiles(x86)"] + '/FocusWriter/FocusWriter.exe'
-HOME = 'C:\Users\hha\Documents\MobaXterm\home' 
+EDITOR = '/Applications/FocusWriter.app/Contents/MacOS/FocusWriter'
+#EDITOR = os.environ["ProgramFiles(x86)"] + '/FocusWriter/FocusWriter.exe'
+HOME = os.path.expanduser('~') 
+#HOME = 'C:\Users\hha\Documents\MobaXterm\home' 
 
 initial_message = ""
 
@@ -82,6 +86,11 @@ def add_event (cal_service, cal_id, summary, start_time, end_time, timezone='Etc
 	event = cal_service.events().insert(calendarId=cal_id, supportsAttachments=has_attachment, body=event).execute()
 	return event
 
+def extract_tags (filename):
+    with open(filename) as f:
+        tags = re.findall(r"#([\sA-Za-z0-9-]+)", f.read(), re.MULTILINE)
+	return map (str.strip, tags)
+
 def main():
 	credentials = get_credentials()
 	http = credentials.authorize(httplib2.Http())
@@ -108,14 +117,19 @@ def main():
 	
 	print('Calling ' + EDITOR)
 	call([EDITOR, journalfile_path])
-	
+	taglist = extract_tags(journalfile_path)
+	print('List of tags:')
+	print(taglist)
+
 	print('Uploading to Drive')
 	fileup = upload_media (drv_service, title='Journal at ' + now, description='Journal at ' + now, filepath = journalfile_path, mime_type = "text/plain", resumable=False)
 	alt_filelink = fileup['alternateLink']
 	print('File uploaded to ' + alt_filelink)
 	
 	print('Creating entry ' + now)
-	event = add_event (cal_service, cal_id='e4unln1q7f9d3gjomqtmca94pc@group.calendar.google.com', summary = 'Entry ' + now, description = 'Journal entry at ' + now, start_time=now, end_time=now, has_attachment=True, attachment_url=alt_filelink)
+	event = add_event (cal_service,
+			cal_id='e4unln1q7f9d3gjomqtmca94pc@group.calendar.google.com',
+			summary = 'Entry ' + now, description = ' '.join(taglist), start_time=now, end_time=now, has_attachment=True, attachment_url=alt_filelink)
 	print('Entry created.')
 
 	if os.path.isfile(journalfile_path):
