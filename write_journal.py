@@ -2,6 +2,7 @@
 from __future__ import print_function
 import httplib2
 import sys, tempfile, os
+from sys import platform
 import os.path
 from subprocess import call
 
@@ -24,10 +25,18 @@ except ImportError:
 SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'GCalQuickJournal'
-EDITOR = '/Applications/FocusWriter.app/Contents/MacOS/FocusWriter'
-#EDITOR = os.environ["ProgramFiles(x86)"] + '/FocusWriter/FocusWriter.exe'
-HOME = os.path.expanduser('~') 
-#HOME = 'C:\Users\hha\Documents\MobaXterm\home' 
+
+if platform == "linux" or platform == "linux2":
+	#Linux
+	pass
+elif platform == "darwin":
+	#OS X
+	EDITOR = '/Applications/FocusWriter.app/Contents/MacOS/FocusWriter'
+	HOME = os.path.expanduser('~') 
+elif platform == "win32" or platform == "cygwin":
+	#Windows
+	EDITOR = os.environ["ProgramFiles(x86)"] + '/FocusWriter/FocusWriter.exe'
+	HOME = 'C:\Users\hha\Documents\MobaXterm\home' 
 
 initial_message = ""
 
@@ -54,7 +63,7 @@ def get_credentials():
 			credential = tools.run_flow(flow, store, flags)
 		else: # Needed only for compatibility with Python 2.6
 			credential = tools.run(flow, store)
-		print('Storing credentials to ' + credential_path)
+		print ('Storing credentials to ' + credential_path)
 	return credential
 
 def upload_media (drv_service, title, filepath, mime_type, resumable=False, description=""):
@@ -115,25 +124,29 @@ def main():
 	print ('Creating temporary local file ' + journalfile_path)
 	call(['touch', journalfile_path])
 	
-	print('Calling ' + EDITOR)
+	print ('Calling ' + EDITOR)
 	call([EDITOR, journalfile_path])
-	taglist = extract_tags(journalfile_path)
-	print('List of tags:')
-	print(taglist)
 
-	print('Uploading to Drive')
-	fileup = upload_media (drv_service, title='Journal at ' + now, description='Journal at ' + now, filepath = journalfile_path, mime_type = "text/plain", resumable=False)
-	alt_filelink = fileup['alternateLink']
-	print('File uploaded to ' + alt_filelink)
-	
-	print('Creating entry ' + now)
-	event = add_event (cal_service,
-			cal_id='e4unln1q7f9d3gjomqtmca94pc@group.calendar.google.com',
-			summary = 'Entry ' + now, description = ' '.join(taglist), start_time=now, end_time=now, has_attachment=True, attachment_url=alt_filelink)
-	print('Entry created.')
+	filesize = os.stat(journalfile_path).st_size
+	if filesize > 0:
+		taglist = extract_tags(journalfile_path)
+		print ('List of tags:')
+		print (taglist)
+		
+		print ('Uploading to Drive')
+		fileup = upload_media (drv_service, title='Journal at ' + now, description='Journal at ' + now, filepath = journalfile_path, mime_type = "text/plain", resumable=False)
+		alt_filelink = fileup['alternateLink']
+		print ('File uploaded to ' + alt_filelink)
+		
+		print ('Creating entry ' + now)
+		event = add_event (cal_service,
+				cal_id='e4unln1q7f9d3gjomqtmca94pc@group.calendar.google.com',
+				summary = 'Entry ' + now, description = ' '.join(taglist), start_time=now, end_time=now, has_attachment=True, attachment_url=alt_filelink)
+		print ('Entry created.')
+	else: print ('No entry created.')
 
 	if os.path.isfile(journalfile_path):
-		print('Removing temporary local file ' + journalfile_path)
+		print ('Removing temporary local file ' + journalfile_path)
 		call(['rm', '-f', journalfile_path])
 
 if __name__ == '__main__':
