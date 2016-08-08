@@ -96,7 +96,7 @@ def add_event (cal_service, cal_id, summary, start_time, end_time, timezone='Etc
 	return event
 
 def extract_tags (filename):
-    with open(filename) as f:
+	with open(filename) as f:
 		tags = re.findall(r"#([\sA-Za-z0-9-]+)", f.read(), re.MULTILINE) #TODO: this counts "\n" as a character in a tag (#abc\ndef)<- fix this.
 	return map (str.strip, tags)
 
